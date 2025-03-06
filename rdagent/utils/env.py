@@ -4,7 +4,7 @@ The motiviation of the utils is for environment management
 Tries to create uniform environment for the agent to run;
 - All the code and data is expected included in one folder
 """
-
+import pdb
 # TODO: move the scenario specific docker env into other folders.
 
 import json
@@ -270,6 +270,18 @@ class MLEBDockerConf(DockerConf):
     enable_cache: bool = False
 
 
+def check_image_exists(image_name):
+    client = docker.from_env()
+    try:
+        # 尝试获取镜像
+        image = client.images.get(image_name)
+        logger.info(f"镜像 {image_name} 存在.")
+        return True
+    except docker.errors.ImageNotFound:
+        logger.info(f"镜像 {image_name} 不存在.")
+        return False
+
+
 # physionet.org/files/mimic-eicu-fiddle-feature/1.0.0/FIDDLE_mimic3
 class DockerEnv(Env[DockerConf]):
     # TODO: Save the output into a specific file
@@ -279,7 +291,10 @@ class DockerEnv(Env[DockerConf]):
         Download image if it doesn't exist
         """
         client = docker.from_env()
-        if (
+
+        if check_image_exists("local_qlib:latest"):
+            pass
+        elif (
             self.conf.build_from_dockerfile
             and self.conf.dockerfile_folder_path is not None
             and self.conf.dockerfile_folder_path.exists()
@@ -397,6 +412,9 @@ class DockerEnv(Env[DockerConf]):
 
         try:
             start = time.time()
+
+            # 1. Run the container
+            
             container: docker.models.containers.Container = client.containers.run(  # type: ignore[no-any-unimported]
                 image=self.conf.image,
                 command=entry,
@@ -599,6 +617,7 @@ class QTDockerEnv(DockerEnv):
         Download image & data if it doesn't exist
         """
         super().prepare()
+
         qlib_data_path = next(iter(self.conf.extra_volumes.keys()))
         if not (Path(qlib_data_path) / "qlib_data" / "cn_data").exists():
             logger.info("We are downloading!")
